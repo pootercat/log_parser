@@ -12,7 +12,7 @@ class ParseLog
 
   def get_opts
     @logfile = 'logs/production.log'
-    @date = Date.today.strftime("%Y-%m-%d")
+    @date    = Date.today.strftime("%Y-%m-%d")
     opts = GetoptLong.new(
       ["--logfile", "-l", GetoptLong::OPTIONAL_ARGUMENT],
       ["--date",    "-d", GetoptLong::OPTIONAL_ARGUMENT],
@@ -39,20 +39,19 @@ class ParseLog
           exit
       end
     end
+    @parser = LogParser.new @logfile 
     send @method
   end
 
   def count
     raise "You forgot to specify a regex idiot" unless @regex
-    load_log
-    count = LogParser.count(@tmp_log, @regex)
+    count = @parser.count @regex
     puts "I found #{count} instances of #{@regex}\n\n\n"
   end
 
   def find
     raise "You forgot to specify a regex idiot" unless @regex
-    load_log
-    LogParser.find(@tmp_log, @regex)
+    @parser.find @regex
   end
 
   def saml_logins
@@ -76,17 +75,7 @@ class ParseLog
   end
 
   private
-
-  def load_log
-    #parse_by_date      #this should go back by the number of days you tell it to
-    puts "Using log file: #{@logfile}"
-    begin
-      FileUtils.cp @logfile, 'logs/temp.log'
-      @tmp_log = File.open('logs/temp.log')
-    rescue Exception => e
-      puts "WHOOOOAAA, I have no idea what you are trying to do: #{e.message}\n"
-    end
-  end
+  #nothing here yet
 end
 
 ParseLog.new.get_opts
