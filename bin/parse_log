@@ -1,0 +1,92 @@
+#!/usr/bin/env ruby
+
+require 'date'
+require 'fileutils'
+require 'getoptlong'
+require_relative '../lib/parser'
+
+libdir = File.expand_path("#{__FILE__}/../../lib")
+$LOAD_PATH.unshift(libdir) unless $LOAD_PATH.include?(libdir)
+
+class ParseLog
+
+  def get_opts
+    @logfile = 'logs/production.log'
+    @date = Date.today.strftime("%Y-%m-%d")
+    opts = GetoptLong.new(
+      ["--logfile", "-l", GetoptLong::OPTIONAL_ARGUMENT],
+      ["--date",    "-d", GetoptLong::OPTIONAL_ARGUMENT],
+      ["--userid",  "-u", GetoptLong::OPTIONAL_ARGUMENT],
+      ["--regex",   "-r", GetoptLong::OPTIONAL_ARGUMENT],
+      ["--method",  "-m", GetoptLong::REQUIRED_ARGUMENT],
+      ["--help",    "-h", GetoptLong::NO_ARGUMENT]
+    )
+    #override the defaults here
+    opts.each do |opt, arg|
+      case opt
+        when '--logfile'
+          @logfile = arg
+        when '--date'
+          @date = arg
+        when '--method'
+          @method = arg
+        when '--userid'
+          @userid = arg
+        when '--regex'
+          @regex = arg
+        when '--help'
+          puts "Sorry, no help for you yet (find the developer and call him lazy"
+          exit
+      end
+    end
+    send @method
+  end
+
+  def count
+    raise "You forgot to specify a regex idiot" unless @regex
+    load_log
+    count = LogParser.count(@tmp_log, @regex)
+    puts "I found #{count} instances of #{@regex}\n\n\n"
+  end
+
+  def find
+    raise "You forgot to specify a regex idiot" unless @regex
+    load_log
+    LogParser.find(@tmp_log, @regex)
+  end
+
+  def saml_logins
+    # "provider":"saml","uid":"402630"
+    @regex = '"provider":"saml","uid":'
+    logins = find
+    users = {}
+    logins.each do |login|
+      match_data = login.match(/"uid":"(\d+)"/)
+      users[match_data[1]] ||= 0
+      users[match_data[1]] += 1
+    end
+    puts users.inspect
+  end
+
+  def user_logins
+    raise "You must specify a user: (Ex. --userid nw_admin)" unless @userid
+    # "auth_key"=>"nw_admin5"
+    @regex = "\"auth_key\"=>\"#{@userid}\""
+    count
+  end
+
+  private
+
+  def load_log
+    #parse_by_date      #this should go back by the number of days you tell it to
+    puts "Using log file: #{@logfile}"
+    begin
+      FileUtils.cp @logfile, 'logs/temp.log'
+      @tmp_log = File.open('logs/temp.log')
+    rescue Exception => e
+      puts "WHOOOOAAA, I have no idea what you are trying to do: #{e.message}\n"
+    end
+  end
+end
+
+ParseLog.new.get_opts
